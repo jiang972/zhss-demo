@@ -2,6 +2,7 @@ package com.roncoo.eshop.cache.ha.controller;
 
 import com.netflix.hystrix.HystrixCommand;
 import com.netflix.hystrix.HystrixObservableCommand;
+import com.roncoo.eshop.cache.ha.hystrix.command.GetBrandNameCommand;
 import com.roncoo.eshop.cache.ha.hystrix.command.GetCityNameCommand;
 import com.roncoo.eshop.cache.ha.hystrix.command.GetProductInfoCommand;
 import com.roncoo.eshop.cache.ha.hystrix.command.GetProductInfosCommand;
@@ -43,23 +44,32 @@ public class CacheController {
 	 */
 	@RequestMapping("/getProductInfo")
 	@ResponseBody
-	public String getProductInfo(Long productId) {
+	public ProductInfo getProductInfo(Long productId) {
+
+		//通过商品id查询商品
 		HystrixCommand<ProductInfo> getProductInfoCommand = new GetProductInfoCommand(productId);
 		ProductInfo productInfo = getProductInfoCommand.execute();
 
 		//从缓存中拿到城市id对应的名字
 		Long cityId = productInfo.getCityId();
 
-		//将查询方法，使用信号量隔离
+		//将从缓存查询城市的方法，使用信号量隔离
 		GetCityNameCommand getCityNameCommand = new GetCityNameCommand(cityId);
 		String cityName = getCityNameCommand.execute();
 		//String cityName = LocationCache.getCityName(cityId);
 
 		productInfo.setCityName(cityName);
 
+		//测试降级用
+		Long brandId = productInfo.getBrandId();
+		GetBrandNameCommand getBrandNameCommand = new GetBrandNameCommand(brandId);
+		String brandName = getBrandNameCommand.execute();
+		productInfo.setBrandName(brandName);
+
 		System.out.println(productInfo);
-		return "success";
+		return productInfo;
 	}
+
 
 
 	@RequestMapping("/getProductInfos")
@@ -83,6 +93,14 @@ public class CacheController {
 				System.out.println(productInfo);
 			}
 		});
+
+		//测试缓存的
+//		for (String productId : productIds.split(",")){
+//			HystrixCommand<ProductInfo> getProductInfoCommand = new GetProductInfoCommand(Long.valueOf(productId));
+//			ProductInfo productInfo = getProductInfoCommand.execute();
+//			System.out.println(productInfo);
+//			System.out.println(getProductInfoCommand.isResponseFromCache());
+//		}
 
 		return "success";
 	}

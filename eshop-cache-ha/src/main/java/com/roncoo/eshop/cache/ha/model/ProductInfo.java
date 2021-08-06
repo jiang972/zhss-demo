@@ -13,6 +13,8 @@ public class ProductInfo {
     private String modifiedTime;
     private Long cityId;
     private String cityName;
+    private Long brandId;
+    private String brandName;
 
 
     @Override
@@ -30,7 +32,25 @@ public class ProductInfo {
                 ", modifiedTime='" + modifiedTime + '\'' +
                 ", cityId=" + cityId +
                 ", cityName='" + cityName + '\'' +
+                ", brandId=" + brandId +
+                ", brandName='" + brandName + '\'' +
                 '}';
+    }
+
+    public String getBrandName() {
+        return brandName;
+    }
+
+    public void setBrandName(String brandName) {
+        this.brandName = brandName;
+    }
+
+    public Long getBrandId() {
+        return brandId;
+    }
+
+    public void setBrandId(Long brandId) {
+        this.brandId = brandId;
     }
 
     public Long getCityId() {

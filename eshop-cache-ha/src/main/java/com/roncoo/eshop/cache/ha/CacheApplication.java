@@ -1,10 +1,12 @@
 package com.roncoo.eshop.cache.ha;
 
+import com.roncoo.eshop.cache.ha.filter.HystrixARequestContextFilter;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.embedded.FilterRegistrationBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -35,6 +37,19 @@ public class CacheApplication {
     @Bean
     public PlatformTransactionManager transactionManager() {
         return new DataSourceTransactionManager(dataSource());
+    }
+
+    /**
+     * 注册一个Hystrix的过滤器
+     * @return
+     */
+    @Bean
+    public FilterRegistrationBean filterRegistrationBean(){
+         FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
+                 new HystrixARequestContextFilter()
+         );
+         filterRegistrationBean.addUrlPatterns("/*");
+         return filterRegistrationBean;
     }
 
     public static void main(String[] args) {

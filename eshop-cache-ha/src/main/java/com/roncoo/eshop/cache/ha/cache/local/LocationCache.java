@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 本地缓存类
+ * 城市缓存类
  */
 public class LocationCache {
 
