@@ -42,9 +42,17 @@ public class GetProductInfoCommand extends HystrixCommand<ProductInfo> {
                 .andCommandKey(COMMANDKEY)
                 //处理CommandKey的线程池
                 .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey("GetCityNamePool"))
-                //设置线程池大小，一般用默认的10个足以,也可以设置缓冲队列的大小，队列默认的也是10
+                //线程池配置
                 .andThreadPoolPropertiesDefaults(HystrixThreadPoolProperties.Setter()
+                        //设置线程池核心线程数量，一般用默认的10个足以
                         .withCoreSize(15)
+                        //是否允许线程池大小自动动态调整，默认是false
+                        .withAllowMaximumSizeToDivergeFromCoreSize(true)
+                        //可扩容最大线程数量，默认10
+                        .withMaximumSize(30)
+                        //扩容线程的存活时间，单位分钟
+                        .withKeepAliveTimeMinutes(1)
+                        //也可以设置缓冲队列的大小，队列默认的也是10
                         .withQueueSizeRejectionThreshold(10)
                 )
                 //短路器配置
@@ -94,5 +102,43 @@ public class GetProductInfoCommand extends HystrixCommand<ProductInfo> {
         ProductInfo productInfo = new ProductInfo();
         productInfo.setName("降级商品");
         return productInfo;
+    }
+
+    //多级降级策略的command
+    private static class FirstLevelFallbackCommand extends HystrixCommand<ProductInfo>{
+
+        private Long productId;
+
+        /**
+         * 这个command是运行在降级方法里面的，所以必须开启一个新的线程池
+         * 如果主流程的command都失败了，那么可能线程池已经被超时/异常等打满了
+         * 如果不新开一个线程池可能会有问题
+         * @param productId
+         */
+        public FirstLevelFallbackCommand(Long productId){
+            super(Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey("ProductInfoService"))
+                    .andCommandKey(HystrixCommandKey.Factory.asKey("FirstLevelFallbackCommand"))
+                    .andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey("FirstLevelFallbackPool"))
+            );
+            this.productId = productId;
+        }
+
+        //其实是第一级降级策略，因为没有备用机房，所以重试一次先
+        @Override
+        protected ProductInfo run() throws Exception {
+            String url = "http://localhost:8082/getProductInfo?productId="+productId;
+            String response = HttpClientUtils.sendGetRequest(url);
+            ProductInfo productInfo = JSONObject.parseObject(response, ProductInfo.class);
+            return productInfo;
+        }
+
+        //第二降级策略，可以从redis/ehcache拿，这里偷个懒
+        @Override
+        protected ProductInfo getFallback() {
+            ProductInfo productInfo = new ProductInfo();
+            productInfo.setName("二级降级");
+
+            return productInfo;
+        }
     }
 }

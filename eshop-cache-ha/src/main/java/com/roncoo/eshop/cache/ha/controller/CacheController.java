@@ -2,10 +2,8 @@ package com.roncoo.eshop.cache.ha.controller;
 
 import com.netflix.hystrix.HystrixCommand;
 import com.netflix.hystrix.HystrixObservableCommand;
-import com.roncoo.eshop.cache.ha.hystrix.command.GetBrandNameCommand;
-import com.roncoo.eshop.cache.ha.hystrix.command.GetCityNameCommand;
-import com.roncoo.eshop.cache.ha.hystrix.command.GetProductInfoCommand;
-import com.roncoo.eshop.cache.ha.hystrix.command.GetProductInfosCommand;
+import com.roncoo.eshop.cache.ha.degrade.IsDegrade;
+import com.roncoo.eshop.cache.ha.hystrix.command.*;
 import com.roncoo.eshop.cache.ha.model.ProductInfo;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +12,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.roncoo.eshop.cache.ha.http.HttpClientUtils;
 import rx.Observable;
 import rx.Observer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 /**
  * 缓存服务的接口
@@ -75,24 +78,25 @@ public class CacheController {
 	@RequestMapping("/getProductInfos")
 	@ResponseBody
 	public String getProductInfos(String productIds) {
-		HystrixObservableCommand<ProductInfo> getProductInfosCommand = new GetProductInfosCommand(productIds.split(","));
-		Observable<ProductInfo> observable = getProductInfosCommand.observe();
-		observable.subscribe(new Observer<ProductInfo>() {
-			@Override
-			public void onCompleted() {
-				System.out.println("获取到全部数据了");
-			}
-
-			@Override
-			public void onError(Throwable throwable) {
-				throwable.printStackTrace();
-			}
-
-			@Override
-			public void onNext(ProductInfo productInfo) {
-				System.out.println(productInfo);
-			}
-		});
+		//测试HystrixObservableCommand的
+//		HystrixObservableCommand<ProductInfo> getProductInfosCommand = new GetProductInfosCommand(productIds.split(","));
+//		Observable<ProductInfo> observable = getProductInfosCommand.observe();
+//		observable.subscribe(new Observer<ProductInfo>() {
+//			@Override
+//			public void onCompleted() {
+//				System.out.println("获取到全部数据了");
+//			}
+//
+//			@Override
+//			public void onError(Throwable throwable) {
+//				throwable.printStackTrace();
+//			}
+//
+//			@Override
+//			public void onNext(ProductInfo productInfo) {
+//				System.out.println(productInfo);
+//			}
+//		});
 
 		//测试缓存的
 //		for (String productId : productIds.split(",")){
@@ -102,6 +106,34 @@ public class CacheController {
 //			System.out.println(getProductInfoCommand.isResponseFromCache());
 //		}
 
+		List<Future<ProductInfo>> futures = new ArrayList<>();
+
+		for (String productId : productIds.split(",")){
+			GetProductInfosCollapser getProductInfosCollapser =
+					new GetProductInfosCollapser(Long.valueOf(productId));
+			futures.add(getProductInfosCollapser.queue());
+		}
+
+		//PS：缓存虽然不会重复调用http方法，但是依然会返回缓存中的内容的
+		for (Future<ProductInfo> future : futures){
+			try {
+				System.out.println("CacheController的结果："+future.get());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
 		return "success";
 	}
+
+
+
+	@RequestMapping("/isDegrade")
+	@ResponseBody
+	public String isDegrade(boolean degrade) {
+		IsDegrade.setDegrade(degrade);
+		return "success";
+	}
+
+
 }
